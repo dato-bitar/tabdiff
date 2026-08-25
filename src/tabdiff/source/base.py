@@ -41,6 +41,15 @@ class BoundSource(ABC):
         """Which engine ultimately computes aggregates for this source."""
         return "duckdb"
 
+    def preferred_engine(self) -> str:
+        """Engine whose DIALECT should be used for pushed-down computation.
+
+        May differ from ``engine`` when remote execution is unavailable
+        (e.g. postgres extension without query pushdown): we then fall back
+        to scanning the attached table with DuckDB dialect.
+        """
+        return self.engine
+
     # -- shared implementations --------------------------------------------
 
     def columns(self) -> list[ColumnInfo]:

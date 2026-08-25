@@ -129,4 +129,3 @@ class TestSpecParsing:
         kind, path, _, _ = parse_source_spec("sub/dir/table.parquet")
         assert kind == "parquet"
         assert path is not None and path.as_posix() == "sub/dir/table.parquet"
-

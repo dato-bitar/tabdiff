@@ -49,7 +49,7 @@ class TestBinding:
         assert all(nullable.values())
 
     def test_missing_table_raises(self, session: Any, pg_dsn: str) -> None:
-        with pytest.raises(SourceError, match="not reachable|not found"):
+        with pytest.raises(SourceError, match="not reachable"):
             bind_source(session, "pg", pg_source_spec(pg_dsn, "no_such_table_xyz"))
 
     def test_engine_is_postgres(self, session: Any, pg_dsn: str, pg_table: str) -> None:
@@ -70,9 +70,9 @@ class TestRoundtrip:
         ppath = tmp_path / "roundtrip.parquet"
         pq.write_table(arrow, ppath)
 
-        l = bind_source(session, "l", spec)
-        r = bind_source(session, "r", str(ppath))
-        report = run_join_diff(session, l, r, key_cols=["id"], opts=CompareOptions())
+        src_l = bind_source(session, "l", spec)
+        src_r = bind_source(session, "r", str(ppath))
+        report = run_join_diff(session, src_l, src_r, key_cols=["id"], opts=CompareOptions())
         assert report.identical, (
             f"roundtrip must be identical: counts={report.counts} "
             f"values={report.values} warnings={report.meta.warnings}"

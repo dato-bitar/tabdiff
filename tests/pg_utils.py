@@ -36,27 +36,6 @@ def load_arrow_into_pg(session: Any, dsn: str, table: str, arrow_table: Any) -> 
     qtable = '"' + table.replace('"', '""') + '"'
     with contextlib.suppress(Exception):
         session.execute(f"DROP TABLE IF EXISTS pgload.public.{qtable}")
-    session.execute(
-        f"CREATE TABLE pgload.public.{qtable} AS SELECT * FROM tabdiff_load_src"
-    )
-    session.con.unregister("tabdiff_load_src")
-
-
-def pg_source_spec(dsn: str, table: str) -> str:
-    """Build a tabdiff source URL for a table in the public schema."""
-    base = dsn.rstrip("/")
-    return f"{base}/public/{table}"
-
-
-def load_arrow_into_pg(session: Any, dsn: str, table: str, arrow_table: Any) -> None:
-    """Create schema.table in the postgres at dsn, filled with arrow_table."""
-    session.attach_postgres(dsn, "pgload")
-    session.con.register("tabdiff_load_src", arrow_table)
-    qtable = '"' + table.replace('"', '""') + '"'
-    try:
-        session.execute(f"DROP TABLE IF EXISTS pgload.public.{qtable}")
-    except Exception:
-        pass
     session.execute(f"CREATE TABLE pgload.public.{qtable} AS SELECT * FROM tabdiff_load_src")
     session.con.unregister("tabdiff_load_src")
 

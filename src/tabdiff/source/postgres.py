@@ -88,6 +88,10 @@ class PostgresSource(RelationSource):
     def engine(self) -> str:
         return "postgres"
 
+    def preferred_engine(self) -> str:
+        """'postgres' only when true pushdown (postgres_query) is available."""
+        return "postgres" if self._check_pushdown() else "duckdb"
+
     # -- catalog metadata ----------------------------------------------------
 
     def _declared_from_catalog(self, fallback: list[ColumnInfo]) -> list[ColumnInfo]:

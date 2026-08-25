@@ -31,10 +31,10 @@ def parse_source_spec(spec: str) -> tuple[str, Path | None, str | None, str | No
 
         _conninfo, _dbname, schema, table = split_postgres_url(spec)
         # libpq must not see /schema/table in the URL - rebuild cleanly.
-        p = urlsplit(spec)
-        clean_url = f"{p.scheme}://{p.netloc}/{_dbname}"
-        if p.query:
-            clean_url += f"?{p.query}"
+        parts = urlsplit(spec)
+        clean_url = f"{parts.scheme}://{parts.netloc}/{_dbname}"
+        if parts.query:
+            clean_url += f"?{parts.query}"
         qualified = table if schema is None else f"{schema}.{table}"
         return "postgres", None, clean_url, qualified
 
