@@ -37,9 +37,11 @@ class SchemaDiff:
 
     @property
     def identical(self) -> bool:
-        common = [c for c in self.columns if c.status not in {"only_left", "only_right"}]
-        only = self.by_status("only_left", "only_right")
-        return not only and all(c.status == "same" and not c.note for c in common)
+        # Benign representational notes (timestamp unit, decimal scale) are
+        # surfaced in the report but do not count as differences.
+        if self.by_status("only_left", "only_right"):
+            return False
+        return all(c.status in {"same", "benign"} for c in self.columns)
 
 
 def _nullability_note(left: ColumnInfo, right: ColumnInfo) -> str:

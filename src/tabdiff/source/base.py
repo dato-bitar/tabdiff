@@ -95,6 +95,12 @@ class RelationSource(BoundSource):
         proj = ", ".join(quote_ident(c) for c in columns)
         return f"(SELECT {proj} FROM {base})"
 
+    def columns(self) -> list[ColumnInfo]:
+        """Declared metadata when available (keeps e.g. parquet time units)."""
+        if self.declared_override is not None:
+            return self.declared_override
+        return super().columns()
+
     def declared_columns(self) -> list[ColumnInfo]:
         return self.declared_override if self.declared_override is not None else self.columns()
 

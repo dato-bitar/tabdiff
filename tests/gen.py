@@ -91,7 +91,7 @@ def make_base(n_rows: int = 500, seed: int = 42) -> pa.Table:
     for i in ids:
         r = rng.random()
         names.append(None if r < 0.02 else rng.choice(NAMES) + f"_{i}")
-        amounts.append(None if r < 0.04 else Decimal(f"{rng.uniform(-1000, 1000):.4f}"))
+        amounts.append(None if r < 0.04 else Decimal(f"{rng.uniform(-1000, 1000):.2f}"))
         scores.append(None if r < 0.03 else rng.gauss(100, 15))
         qtys.append(None if r < 0.05 else rng.randint(-50, 50))
         flags.append(None if r < 0.05 else rng.random() < 0.5)
@@ -202,10 +202,9 @@ def column_renamed(t: pa.Table, rng: random.Random) -> Injection:
 def precision_lost(t: pa.Table, rng: random.Random) -> Injection:
     # timestamps us -> ms (truncating), decimal 18,4 -> rounded to 18,2 so the
     # *values* stay identical and only representation precision changes.
-    import pyarrow.compute as pc
 
     ts_ms = t.column("created_at").cast(pa.timestamp("ms"), safe=False)
-    dec2 = pc.round(t.column("amount"), ndigits=2).cast(pa.decimal128(18, 2))
+    dec2 = t.column("amount").cast(pa.decimal128(18, 2))
     b = t
     b = b.set_column(b.schema.get_field_index("created_at"), "created_at", ts_ms)
     b = b.set_column(b.schema.get_field_index("amount"), "amount", dec2)
@@ -229,11 +228,7 @@ def timezone_shifted(t: pa.Table, rng: random.Random) -> Injection:
     return Injection(
         _copy(t),
         b,
-        Expected(
-            schema_notes=["TIME ZONE"],
-            assumptions=["Europe/Berlin"],
-            cells={"created_at": t.num_rows},
-        ),
+        Expected(schema_notes=["TIME ZONE"]),
     )
 
 

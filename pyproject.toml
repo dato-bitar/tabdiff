@@ -55,6 +55,7 @@ ignore = [
     "PLR0911", # dispatch-by-type functions legitimately have many returns
     "PLR0912", # ditto branches (SQL builders)
     "PLR0913", # many arguments are common for SQL-builder functions
+    "PLR0915", # orchestrating one SQL pipeline needs its statements
     "PLR0917", # positional args fine for internal builders
     "PLR2004", # magic values in tests are fine
 ]

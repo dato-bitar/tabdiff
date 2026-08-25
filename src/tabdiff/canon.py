@@ -38,6 +38,9 @@ class CompareOptions:
     treat_empty_as_null: bool = False
     assume_tz: str | None = None  # IANA name, e.g. Europe/Berlin
     ts_precision: str = "coarse"  # coarse | s | ms | us | ns
+    # Columns whose *text* content is JSON and must be compared semantically
+    # (--json-columns). Parquet/CSV have no reliable JSON logical type.
+    json_columns: frozenset[str] = frozenset()
 
 
 # --------------------------------------------------------------------------

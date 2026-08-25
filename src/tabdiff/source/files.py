@@ -5,12 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from tabdiff.errors import SourceError
 from tabdiff.session import quote_ident, quote_literal
 from tabdiff.source.base import BoundSource, ColumnInfo, RelationSource
 
 if TYPE_CHECKING:
     from tabdiff.session import Session
+
+
+def _is_timestamp_type(t: object) -> bool:
+    return bool(pa.types.is_timestamp(t))
 
 
 class ParquetSource(RelationSource):
@@ -22,6 +29,33 @@ class ParquetSource(RelationSource):
         session.create_view(alias, view_sql)
         super().__init__(session, alias, quote_ident(alias))
         self.path = path
+
+    def columns(self) -> list[ColumnInfo]:
+        """DuckDB types refined with the Arrow schema's true time units.
+
+        DuckDB normalizes every parquet timestamp to microseconds, silently
+        losing s/ms/ns units - exactly what precision-aware comparison needs.
+        """
+        cols = super().columns()
+        schema = pq.read_schema(self.path)
+        out: list[ColumnInfo] = []
+        for c in cols:
+            try:
+                idx = schema.get_field_index(c.name)
+                f = schema.field(idx) if idx >= 0 else None
+            except (KeyError, ValueError):
+                f = None
+            if f is None:
+                out.append(c)
+                continue
+            typ = c.type
+            if _is_timestamp_type(f.type):
+                unit = f.type.unit
+                suffix = {"s": "_S", "ms": "_MS", "us": "", "ns": "_NS"}[unit]
+                tz = f.type.tz
+                typ = "TIMESTAMP WITH TIME ZONE" if tz else f"TIMESTAMP{suffix}"
+            out.append(ColumnInfo(c.name, typ, nullable=f.nullable))
+        return out
 
 
 class CsvSource(RelationSource):
