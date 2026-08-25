@@ -123,6 +123,37 @@ class TestInjectionShapes:
         inj = build("timezone_shifted", n_rows=30)
         assert inj.right.schema.field("created_at").type.tz is not None
 
+    def test_column_name_case_space_sides_differ_by_name_only(self) -> None:
+        inj = build("column_name_case_space", n_rows=60)
+        assert inj.left.schema.field("User ID").type == inj.right.schema.field("user_id").type
+        assert inj.left.column("User ID").to_pylist() == inj.right.column("user_id").to_pylist()
+        assert inj.expected.columns_only_left == ["User ID"]
+        assert inj.expected.columns_only_right == ["user_id"]
+
+    def test_special_char_column_names_identical(self) -> None:
+        inj = build("special_char_column_names", n_rows=40)
+        assert inj.left.equals(inj.right)
+        assert inj.left.schema.field('we"ird ;col').type == pa.string()
+
+    def test_case_colliding_columns_change_one_side_of_pair(self) -> None:
+        inj = build("case_colliding_columns", n_rows=100)
+        l_delta = inj.left.column("Delta").to_pylist()
+        r_delta = inj.right.column("Delta").to_pylist()
+        changed = sum(1 for a, b in zip(l_delta, r_delta, strict=True) if a != b)
+        assert changed == inj.expected.cells["Delta"] == 3
+        assert inj.left.column("delta").to_pylist() == inj.right.column("delta").to_pylist()
+
+    def test_long_strings_are_ten_kb(self) -> None:
+        inj = build("long_strings", n_rows=50)
+        sample = inj.left.column("long_text")[0].as_py()
+        assert len(sample.encode("utf-8")) >= 10_000
+
+    def test_mostly_nulls_ratio(self) -> None:
+        inj = build("mostly_nulls", n_rows=300)
+        sparse = inj.left.column("sparse").to_pylist()
+        nulls = sum(1 for v in sparse if v is None)
+        assert nulls / len(sparse) >= 0.95
+
     def test_unknown_kind_raises(self) -> None:
         with pytest.raises(ValueError, match="unknown injection"):
             build("no_such_kind")

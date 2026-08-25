@@ -85,6 +85,14 @@ tabdiff is not (yet) the right tool for that job.
 - Columns with incompatible types (e.g. VARCHAR vs BLOB) are excluded from
   the value diff with a warning. tabdiff never guesses casts between
   unrelated families.
+- Column names are matched case-sensitively and never normalized: `User ID`
+  (left) vs `user_id` (right) is reported as only_left/only_right, never
+  silently paired.
+- DuckDB renames columns whose names collide case-insensitively on read
+  (`Delta` + `delta` in one file become `Delta` and `delta_1`). This happens
+  identically on both sides, so diffs stay correct, but reports show the
+  effective (renamed) column, not the original parquet field name. Names
+  with spaces, quotes or special characters work; they are always quoted.
 - CSV typing relies on DuckDB's sniffer over the whole file (`sample_size=-1`
   default here); pathological mixed-type CSVs can still surprise. Use
   `--all-varchar` plus explicit expectations if in doubt.

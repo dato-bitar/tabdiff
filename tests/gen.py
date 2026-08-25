@@ -274,6 +274,89 @@ def order_shuffled(t: pa.Table, rng: random.Random) -> Injection:
     return Injection(_copy(t), b, Expected())
 
 
+def column_name_case_space(t: pa.Table, rng: random.Random) -> Injection:
+    """Left 'User ID' vs right 'user_id': same data, incompatible names.
+
+    Must be reported as only_left/only_right - never silently matched.
+    """
+    vals = [None if i % 9 == 0 else f"user_{i}" for i in range(t.num_rows)]
+    arr = pa.array(vals, type=pa.string())
+    left = t.append_column(pa.field("User ID", pa.string()), arr)
+    right = t.append_column(pa.field("user_id", pa.string()), arr)
+    return Injection(
+        left,
+        right,
+        Expected(columns_only_left=["User ID"], columns_only_right=["user_id"]),
+    )
+
+
+def special_char_column_names(t: pa.Table, rng: random.Random) -> Injection:
+    """Quotes/semicolons/spaces inside one column name; identical values.
+
+    Must round-trip through SQL quoting with ZERO differences on both
+    strategies.
+    """
+    col = 'we"ird ;col'
+    arr = pa.array([f"v{i}" for i in range(t.num_rows)], type=pa.string())
+    left = t.append_column(pa.field(col, pa.string()), arr)
+    right = t.append_column(pa.field(col, pa.string()), arr)
+    return Injection(left, right, Expected())
+
+
+def case_colliding_columns(t: pa.Table, rng: random.Random) -> Injection:
+    """'Delta' and 'delta' are DIFFERENT columns and must stay separate.
+
+    Three rows change in 'Delta' only; a diff that case-folded names would
+    misattribute them (or merge the columns). Note: DuckDB renames the second
+    case-folded duplicate to 'delta_1' on read - identically on both sides,
+    so the diff stays correct under the effective name.
+    """
+    n = t.num_rows
+    rows = set(rng.sample(range(n), min(3, n)))
+    hi_l = pa.array([i * 10 for i in range(n)], type=pa.int64())
+    lo = pa.array([-(i * 10) for i in range(n)], type=pa.int64())
+    hi_r = pa.array([i * 10 + (1 if i in rows else 0) for i in range(n)], type=pa.int64())
+    left = t.append_column(pa.field("Delta", pa.int64()), hi_l).append_column(
+        pa.field("delta", pa.int64()), lo
+    )
+    right = t.append_column(pa.field("Delta", pa.int64()), hi_r).append_column(
+        pa.field("delta", pa.int64()), lo
+    )
+    return Injection(left, right, Expected(cells={"Delta": len(rows)}))
+
+
+def long_strings(t: pa.Table, rng: random.Random) -> Injection:
+    """~10 KB text per cell; a handful of near-identical giant cells differ."""
+    n = t.num_rows
+    chunk = "abcdefghijklmnopqrstuvwxyz0123456789" * 300  # >10 KB
+    changed = set(rng.sample(range(n), min(4, n)))
+    left_texts = [chunk[:10190] + f"|{i:04d}|" for i in range(n)]
+    right_texts = [
+        chunk[:10190] + f"!{i:04d}!" if i in changed else left_texts[i] for i in range(n)
+    ]
+    left = t.append_column(pa.field("long_text", pa.string()), pa.array(left_texts))
+    right = t.append_column(pa.field("long_text", pa.string()), pa.array(right_texts))
+    return Injection(left, right, Expected(cells={"long_text": len(changed)}))
+
+
+def mostly_nulls(t: pa.Table, rng: random.Random) -> Injection:
+    """A ~99% NULL column; changes to its rare non-nulls must be found."""
+    n = t.num_rows
+    nn_count = max(3, n // 100)
+    step = max(1, n // nn_count)
+    idxs = list(range(0, n, step))[:nn_count]
+    left_sparse: list[str | None] = [None] * n
+    for j, i in enumerate(idxs):
+        left_sparse[i] = f"s{j}"
+    changed = idxs[: min(3, len(idxs))]
+    right_sparse = list(left_sparse)
+    for j, i in enumerate(changed):
+        right_sparse[i] = f"s{j}-changed"
+    left = t.append_column(pa.field("sparse", pa.string()), pa.array(left_sparse))
+    right = t.append_column(pa.field("sparse", pa.string()), pa.array(right_sparse))
+    return Injection(left, right, Expected(cells={"sparse": len(changed)}))
+
+
 INJECTORS: dict[str, Any] = {
     "row_added": row_added,
     "row_deleted": row_deleted,
@@ -288,6 +371,11 @@ INJECTORS: dict[str, Any] = {
     "encoding_mangled": encoding_mangled,
     "duplicate_key_introduced": duplicate_key_introduced,
     "order_shuffled": order_shuffled,
+    "column_name_case_space": column_name_case_space,
+    "special_char_column_names": special_char_column_names,
+    "case_colliding_columns": case_colliding_columns,
+    "long_strings": long_strings,
+    "mostly_nulls": mostly_nulls,
 }
 
 ALL_INJECTIONS = sorted(INJECTORS)
