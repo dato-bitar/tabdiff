@@ -62,6 +62,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["PLR0133", "E501", "PLC0415"]
+# typer's entire API is built on Option()/Argument() defaults in signatures
+"src/tabdiff/cli.py" = ["B008"]
 
 [tool.mypy]
 strict = true
