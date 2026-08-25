@@ -15,7 +15,7 @@ def tmp_dir(tmp_path: Path) -> Path:
 
 def docker_available() -> bool:
     try:
-        import subprocess  # noqa: PLC0415
+        import subprocess
 
         r = subprocess.run(
             ["docker", "info", "--format", "ok"],
