@@ -119,3 +119,45 @@ chronological order. Newest at the bottom.
     Snapshot-tested.
 26. **Rich rendering degrades gracefully** when stdout is not a TTY (CI):
     plain tables without ANSI codes.
+
+## M4–M9 — strategies, reporting, scale
+
+27. **Parquet time units are re-overlaid from the Arrow schema:** DuckDB
+    normalizes every parquet timestamp to microseconds on read, silently
+    destroying the s/ms/ns information that precision-aware comparison needs.
+    `ParquetSource.columns()` therefore overrides types using the file's
+    Arrow schema; nullability likewise comes from Arrow rather than DuckDB's
+    blanket YES.
+28. **Schema-diff severity model:** only *missing columns* block a value diff
+    (`has_blocking`). Per-column incompatibilities warn loudly and skip just
+    that column; benign representational notes (timestamp units, decimal
+    scale) appear in the report but do NOT flip the exit code - "identical"
+    means no semantic difference, and CI users should not fail on units.
+29. **Float canonicalization is pinned by an idempotence property, not
+    byte-parity with Python:** probing showed DuckDB's double-to-text allows
+    ~1 ULP slop, so exact mirroring is guesswork. The property test asserts
+    whatever DuckDB prints re-parses to a value with identical canonical
+    text (transitivity of equality). Granularity documented in LIMITS.md;
+    cross-engine floats recommend tolerance flags.
+30. **typer 0.27 quirk:** an option callback with `is_eager=True` fires even
+    when the flag is absent, which made every CLI invocation print the
+    version. Workaround: check the flag inside the callback body (the pattern
+    FastAPI docs use) instead of passing `callback=`.
+31. **hashdiff pushdown degradation:** if the installed postgres extension
+    lacks `postgres_query()`, the postgres side renders its checksum SQL in
+    DUCKDB dialect against the attached table (correct, moves data). Dialect
+    selection happens once per side via `preferred_engine()` so both sides
+    always render consistently within a phase. Recorded as a report warning.
+32. **hashdiff performance accepted, not hidden:** measured ~20 us/row/scan
+    for the portable pipeline locally. A temp-table materialization cache was
+    considered and consciously deferred (complexity vs benefit for the local
+    case, where joindiff wins anyway). Numbers in BENCHMARKS.md, caveat in
+    LIMITS.md.
+33. **JSON column detection is opt-in per name** (`--json-columns`) because
+    parquet/CSV store JSON as plain text with no reliable logical type. The
+    two-stage compare (SQL fast path + bounded Python refinement) keeps
+    counts honest: beyond 10k candidates per column counts are labelled
+    approximated rather than silently wrong.
+34. **Benchmark ground truth computes overlap exactly:** injected value
+    changes that coincide with deleted rows are subtracted from expectations
+    via set arithmetic on the injection masks - the generator never guesses.

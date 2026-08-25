@@ -42,6 +42,7 @@ dev = [
     "testcontainers[postgres]>=4.7",
     "ruff>=0.6",
     "mypy>=1.11",
+    "numpy>=2.5.2",
 ]
 
 [tool.ruff]

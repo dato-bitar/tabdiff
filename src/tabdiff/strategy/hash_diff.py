@@ -271,6 +271,7 @@ def run_hash_diff(
         if leaves_now:
             pulls.append((width, leaves_now))
         if not refine:
+            bad = []  # everything differing was queued for pulling already
             break
         new_width = min(width + WIDTH_STEP, MAX_WIDTH)
         l_res = _scan(session, l_spec, l_engine, l_pipe, new_width, (width, refine))
