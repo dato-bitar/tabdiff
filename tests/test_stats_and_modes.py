@@ -48,12 +48,12 @@ class TestStatsDrift:
             }
         )
         lp, rp = _pair(tmp_path, l_tbl, r_tbl)
-        l = bind_source(session, "l", lp)
-        r = bind_source(session, "r", rp)
+        src_l = bind_source(session, "l", lp)
+        src_r = bind_source(session, "r", rp)
         stats = compute_stats_drift(
             session,
-            l,
-            r,
+            src_l,
+            src_r,
             {
                 "id": __import__("tabdiff").normalize.Canon.INTEGER,
                 "v": __import__("tabdiff").normalize.Canon.FLOAT,
