@@ -49,9 +49,11 @@ counts, cell-level value differences with examples, and per-column statistics
 drift. Machine-readable output is versioned JSON.
 
 Verified correctness: every injected deviation of a synthetic ground-truth
-generator (13 deviation types) is found exactly; identical inputs always
+generator (18 deviation types, including dirty schemas like case-colliding
+column names and ~10 KB cells) is found exactly; identical inputs always
 yield zero differences (property-tested); a Postgres table and its parquet
-export diff to zero across engines. Scale: 10M rows x 20 columns in under
+export diff to zero across engines - with checksums pushed down into
+Postgres AND via local scan. Scale: 10M rows x 20 columns in under
 60 seconds end-to-end (see BENCHMARKS.md).
 
 ## Installation

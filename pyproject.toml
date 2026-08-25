@@ -1,6 +1,6 @@
 [project]
 name = "tabdiff"
-version = "0.1.0"
+version = "0.1.0b1"
 description = "Local-first, cell-level diff for tabular data sources (Parquet, CSV, DuckDB, Postgres)."
 readme = "README.md"
 requires-python = ">=3.12"
