@@ -21,6 +21,7 @@ dependencies = [
     "pyarrow>=17.0",
     "typer>=0.12",
     "rich>=13.7",
+    "pytz>=2026.3.post1",
 ]
 
 [project.scripts]
@@ -51,7 +52,10 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "PL"]
 ignore = [
+    "PLR0911", # dispatch-by-type functions legitimately have many returns
+    "PLR0912", # ditto branches (SQL builders)
     "PLR0913", # many arguments are common for SQL-builder functions
+    "PLR0917", # positional args fine for internal builders
     "PLR2004", # magic values in tests are fine
 ]
 
