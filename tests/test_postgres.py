@@ -79,12 +79,12 @@ class TestRoundtrip:
         )
 
     def test_pk_hint_detected(self, session: Any, pg_dsn: str) -> None:
+        import contextlib
+
         con = session.con
         session.attach_postgres(pg_dsn, "pgpk")
-        try:
+        with contextlib.suppress(Exception):
             con.execute("DROP TABLE IF EXISTS pgpk.public.tabdiff_m5_pk")
-        except Exception:
-            pass
         # create via raw SQL through a pushdown query if possible, else scan
         con.execute('CREATE TABLE pgpk.public."tabdiff_m5_pk" (id BIGINT PRIMARY KEY, v VARCHAR)')
         src = bind_source(session, "pg2", pg_source_spec(pg_dsn, "tabdiff_m5_pk"))
