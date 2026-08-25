@@ -161,3 +161,31 @@ chronological order. Newest at the bottom.
 34. **Benchmark ground truth computes overlap exactly:** injected value
     changes that coincide with deleted rows are subtracted from expectations
     via set arithmetic on the injection masks - the generator never guesses.
+35. **Postgres pushdown was dead code until release prep found it.** The
+    feature-detect always failed on this machine and every run silently took
+    the local-scan fallback. Root causes, all fixed and now covered by
+    integration tests that assert the ACTIVE path:
+    - newer `postgres_scanner` requires the ATTACH ALIAS as the first
+      `postgres_query()` argument, not a connection URL;
+    - the pushed-down SQL must reference the table by POSTGRES names
+      (`schema.table`), not through the DuckDB attach alias
+      (`BoundSource.remote_relation_sql()`);
+    - the postgres float canonicalization used `ends_with()`, which does not
+      exist in Postgres (now `LIKE '%.0'`, identical semantics both engines);
+    - hex-digit-to-int arithmetic multiplied `strpos()` results (int4) -
+      DuckDB widens implicitly, Postgres overflows ("integer out of range");
+      explicit `::BIGINT` widening fixes both engines identically;
+    - scan aggregates are now aliased because `postgres_query()` rejects
+      duplicate column names (three unaliased `sum()` columns);
+    - `_exec_rows` decoded Arrow tables via `to_pylist()` dicts as if they
+      were row tuples - never executed before, would have produced garbage.
+36. **Runtime pushdown failures abort loudly instead of silently degrading.**
+    Dialect selection stays once-per-side at detection time (§31); if the
+    pushed-down query fails mid-run, tabdiff exits 2 with the underlying
+    error rather than executing postgres-dialect SQL against DuckDB (which
+    only produces a misleading CatalogException). Clean fallback to
+    local-scan remains available at detection time.
+37. **DiffMeta.execution_path makes the chosen path machine-readable:** a
+    per-side dict (`{"left": "pushdown", "right": "local-scan"}`), rendered
+    in JSON/markdown/rich output for hashdiff runs. Empty dict for strategies
+    without a per-side choice. Additive JSON field per §25.

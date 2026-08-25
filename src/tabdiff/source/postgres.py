@@ -92,6 +92,11 @@ class PostgresSource(RelationSource):
         """'postgres' only when true pushdown (postgres_query) is available."""
         return "postgres" if self._check_pushdown() else "duckdb"
 
+    def remote_relation_sql(self) -> str:
+        """Relation as seen INSIDE postgres - no duckdb attach alias."""
+        qtable = self.pg_table.replace(chr(34), chr(34) * 2)
+        return f'(SELECT * FROM "{self.pg_schema}"."{qtable}")'
+
     # -- catalog metadata ----------------------------------------------------
 
     def _declared_from_catalog(self, fallback: list[ColumnInfo]) -> list[ColumnInfo]:
@@ -138,7 +143,7 @@ class PostgresSource(RelationSource):
         if self._pushdown_ok is None:
             try:
                 self.session.scalar(
-                    f"SELECT 1 FROM postgres_query({quote_literal(self.url)}, 'SELECT 1')"
+                    f"SELECT 1 FROM postgres_query({quote_literal(self.alias)}, 'SELECT 1')"
                 )
                 self._pushdown_ok = True
             except Exception:
@@ -150,21 +155,28 @@ class PostgresSource(RelationSource):
         return template.format(relation=self.relation_sql(), **params)
 
     def execute_remote(self, sql: str) -> Any:
-        """Run a SELECT close to the data when possible, else scan locally.
+        """Run a SELECT close to the data via ``postgres_query(alias, sql)``.
 
-        Returns an Arrow Table either way. If the pushdown path fails at
-        runtime (extension without postgres_query support, unsupported SQL),
-        we degrade to running the same statement against the attached table
-        through DuckDB - correct, but moves rows over the wire.
+        ``sql`` must be rendered in POSTGRES dialect against
+        :meth:`remote_relation_sql` - which is guaranteed by the hashdiff
+        strategy, which selects dialects once per side via
+        :meth:`preferred_engine` before building any SQL.
+
+        Raises:
+            SourceError: if the pushed-down execution fails at runtime. A
+                silent degradation here would run postgres-dialect SQL on
+                DuckDB and mask the real error; clean fallback to DuckDB
+                happens only at detection time instead.
         """
         if self._check_pushdown():
             wrapped = (
-                f"SELECT * FROM postgres_query({quote_literal(self.url)}, {quote_literal(sql)})"
+                f"SELECT * FROM postgres_query({quote_literal(self.alias)}, {quote_literal(sql)})"
             )
             try:
                 return self.session.arrow(wrapped)
-            except Exception:
-                self._pushdown_ok = False
+            except Exception as exc:
+                msg = f"postgres pushdown failed at runtime: {exc}"
+                raise SourceError(msg) from exc
         return self.session.arrow(sql)
 
 

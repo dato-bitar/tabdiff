@@ -17,6 +17,7 @@ import pytest
 from tabdiff.canon import CompareOptions
 from tabdiff.session import Session
 from tabdiff.source import bind_source
+from tabdiff.source.postgres import PostgresSource
 from tabdiff.strategy.hash_diff import run_hash_diff
 from tests.gen import build, make_base
 from tests.pg_utils import load_arrow_into_pg, pg_source_spec
@@ -61,6 +62,99 @@ class TestCrossEngineParity:
             f"values={[(c.column, c.mismatched_rows) for c in report.values.columns]} "
             f"examples={[c.examples[:2] for c in report.values.columns]}"
         )
+
+
+class TestPushdownPaths:
+    """The pushdown vs local-scan choice must be visible and both paths correct."""
+
+    def test_pushdown_active_and_zero_diffs(
+        self, session: Session, pg_pair: tuple[str, str]
+    ) -> None:
+        spec, pp = pg_pair
+        src_l = bind_source(session, "l", spec)
+        assert isinstance(src_l, PostgresSource)
+        assert src_l._check_pushdown() is True, (
+            "postgres_query pushdown expected with the installed postgres_scanner; "
+            "if this fails the extension lost the postgres_query(alias, sql) form"
+        )
+        src_r = bind_source(session, "r", pp)
+        report = run_hash_diff(
+            session, src_l, src_r, key_cols=["id"], opts=CompareOptions(), leaf_rows=64
+        )
+        assert report.identical, report.warnings
+        assert report.meta.execution_path == {"left": "pushdown", "right": "local-scan"}
+
+    def test_pushdown_injected_changes_found(
+        self, session: Session, pg_dsn: str, tmp_path: Any
+    ) -> None:
+        inj = build("value_changed", n_rows=400, seed=91)
+        name = "tabdiff_m6_pd_inject"
+        load_arrow_into_pg(Session(), pg_dsn, name, inj.left)
+        spec = pg_source_spec(pg_dsn, name)
+        ppath = tmp_path / "pd.parquet"
+        pq.write_table(inj.right, ppath)
+
+        src_l = bind_source(session, "l", spec)
+        assert isinstance(src_l, PostgresSource)
+        assert src_l.preferred_engine() == "postgres"
+        src_r = bind_source(session, "r", str(ppath))
+        report = run_hash_diff(
+            session, src_l, src_r, key_cols=["id"], opts=CompareOptions(), leaf_rows=64
+        )
+        got = {c.column: c.mismatched_rows for c in report.values.columns}
+        assert got == {"score": inj.expected.cells["score"]}, got
+        assert report.meta.execution_path["left"] == "pushdown"
+
+    def test_forced_fallback_zero_diffs(
+        self,
+        session: Session,
+        pg_pair: tuple[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        spec, pp = pg_pair
+        src_l = bind_source(session, "l", spec)
+        assert isinstance(src_l, PostgresSource)
+
+        def _no_pushdown() -> bool:
+            return False
+
+        monkeypatch.setattr(src_l, "_check_pushdown", _no_pushdown)
+        assert src_l.preferred_engine() == "duckdb"
+        src_r = bind_source(session, "r", pp)
+        report = run_hash_diff(
+            session, src_l, src_r, key_cols=["id"], opts=CompareOptions(), leaf_rows=64
+        )
+        assert report.identical, report.warnings
+        assert report.meta.execution_path["left"] == "local-scan"
+
+    def test_forced_fallback_finds_injections(
+        self,
+        session: Session,
+        pg_dsn: str,
+        tmp_path: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        inj = build("value_changed", n_rows=400, seed=92)
+        name = "tabdiff_m6_fb_inject"
+        load_arrow_into_pg(Session(), pg_dsn, name, inj.left)
+        spec = pg_source_spec(pg_dsn, name)
+        ppath = tmp_path / "fb.parquet"
+        pq.write_table(inj.right, ppath)
+
+        src_l = bind_source(session, "l", spec)
+        assert isinstance(src_l, PostgresSource)
+
+        def _no_pushdown() -> bool:
+            return False
+
+        monkeypatch.setattr(src_l, "_check_pushdown", _no_pushdown)
+        src_r = bind_source(session, "r", str(ppath))
+        report = run_hash_diff(
+            session, src_l, src_r, key_cols=["id"], opts=CompareOptions(), leaf_rows=64
+        )
+        got = {c.column: c.mismatched_rows for c in report.values.columns}
+        assert got == {"score": inj.expected.cells["score"]}, got
+        assert report.meta.execution_path["left"] == "local-scan"
 
     def test_injected_changes_found(self, session: Session, pg_dsn: str, tmp_path: Any) -> None:
         inj = build("value_changed", n_rows=600, seed=41)

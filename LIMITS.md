@@ -69,10 +69,16 @@ tabdiff is not (yet) the right tool for that job.
   BENCHMARKS.md). On local files joindiff is always faster; hashdiff pays off
   when data cannot be pulled (remote engines) or when tables are huge and
   nearly identical.
-- The postgres pushdown path requires a `postgres_scanner` version with the
-  `postgres_query()` table function. Without it, tabdiff degrades to scanning
-  the attached table through DuckDB (correct, but moves all rows over the
-  wire once per scan phase).
+- The postgres pushdown path requires a `postgres_scanner` version whose
+  `postgres_query()` table function takes the ATTACH ALIAS as its first
+  argument (current extension versions do; older URL-based forms fail the
+  feature detect and degrade to scanning the attached table through DuckDB -
+  correct, but moves all rows over the wire once per scan phase). Which path
+  a run actually took is reported per side in `meta.execution_path`
+  (`pushdown` vs `local-scan`) in every output format. Verified active on
+  the development machine (DuckDB 1.5.5, postgres_scanner 41223e5, Postgres
+  16); if your extension predates alias-style `postgres_query()`, expect
+  local-scan.
 
 ## Schema handling
 

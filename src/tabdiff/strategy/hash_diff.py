@@ -63,7 +63,9 @@ def hex_prefix_to_int_sql(hex_expr: str, n_digits: int, offset: int = 0) -> str:
     out = ""
     for i in range(offset, offset + n_digits):
         d = f"(strpos('{HEX_CHARS}', substr({hex_expr}, {i + 1}, 1)) - 1)"
-        out = d if not out else f"(({out}) * 16 + {d})"
+        # ::BIGINT keeps postgres from overflowing int4 (duckdb widens
+        # implicitly, postgres does not)
+        out = f"{d}::BIGINT" if not out else f"((({out})::BIGINT) * 16 + ({d})::BIGINT)"
     return out
 
 
@@ -130,8 +132,20 @@ class _ScanResult:
 def _exec_rows(session: Session, spec: _SideSpec, engine: str, sql: str) -> list[tuple[Any, ...]]:
     if engine == "postgres" and hasattr(spec.src, "execute_remote"):
         tbl = spec.src.execute_remote(sql)
-        return [tuple(r) for r in tbl.to_pylist()]
+        cols = [tbl.column(i).to_pylist() for i in range(tbl.num_columns)]
+        return [tuple(row) for row in zip(*cols, strict=True)] if cols else []
     return session.rows(sql)
+
+
+def _rel_for(spec: _SideSpec, engine: str) -> str:
+    """Relation fragment matching the executing engine.
+
+    Pushed-down postgres SQL references the table by its POSTGRES names
+    (schema.table); duckdb-side execution goes through the attach alias.
+    """
+    if engine == "postgres":
+        return str(spec.src.remote_relation_sql())
+    return str(spec.src.relation_sql())
 
 
 def _scan(
@@ -142,14 +156,14 @@ def _scan(
     width: int,
     restrict: tuple[int, list[str]] | None = None,
 ) -> _ScanResult:
-    sql_inner = pipe_tpl.format(rel=spec.src.relation_sql())
+    sql_inner = pipe_tpl.format(rel=_rel_for(spec, engine))
     if restrict:
         w, prefixes = restrict
         plist = ", ".join("'" + p + "'" for p in prefixes)
         sql_inner = f"SELECT * FROM ({sql_inner}) q WHERE substr(q.hk, 1, {w}) IN ({plist})"
     sql = (
         f"SELECT substr(hk, 1, {width}) AS b, count(*) AS n, "
-        f"sum(h1), sum(h2), sum(pr) FROM ({sql_inner}) q GROUP BY 1"
+        f"sum(h1) AS s1, sum(h2) AS s2, sum(pr) AS s3 FROM ({sql_inner}) q GROUP BY 1"
     )
     res = _ScanResult()
     for b, n, s1, s2, sp in _exec_rows(session, spec, engine, sql):
@@ -219,6 +233,9 @@ def run_hash_diff(
     engines: dict[str, Engine] = {
         "left": cast(Engine, left_src.preferred_engine()),
         "right": cast(Engine, right_src.preferred_engine()),
+    }
+    execution_path = {
+        side: ("pushdown" if eng == "postgres" else "local-scan") for side, eng in engines.items()
     }
     warnings.append(
         f"hashdiff execution: left={engines['left']}, right={engines['right']} "
@@ -345,6 +362,7 @@ def run_hash_diff(
             key=list(key_cols),
             assumptions=assumptions,
             warnings=warnings,
+            execution_path=execution_path,
         ),
         schema=schema_diff if include_schema else None,
         counts=CountsDiff(
@@ -401,7 +419,7 @@ def _fetch_arrow(
     names = [c.name for c in cols]
     proj = ", ".join(_qi(n) for n in names)
     inner = f"SELECT {proj}, {hk} AS __hk FROM {{rel}}"
-    sql_inner = inner.format(rel=spec.src.relation_sql())
+    sql_inner = inner.format(rel=_rel_for(spec, engine))
     sql = f"SELECT {proj} FROM ({sql_inner}) q WHERE substr(q.__hk, 1, {width}) IN ({plist})"
     if engine == "postgres" and hasattr(spec.src, "execute_remote"):
         return spec.src.execute_remote(sql)

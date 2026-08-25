@@ -56,6 +56,11 @@ def to_markdown(report: DiffReport) -> str:
     lines.append(f"- Strategy: `{report.meta.strategy}`")
     lines.append(f"- Key: `{key_disp}`")
     lines.append(f"- Duration: {report.meta.duration_s:.2f}s")
+    if report.meta.execution_path:
+        ep = ", ".join(
+            f"{side}={path}" for side, path in sorted(report.meta.execution_path.items())
+        )
+        lines.append(f"- Execution: {ep}")
     for a in report.meta.assumptions:
         lines.append(f"- Assumption: {a}")
     for w in report.meta.warnings:
@@ -172,6 +177,11 @@ def render_rich(report: DiffReport) -> None:
         f"strategy=[cyan]{report.meta.strategy}[/cyan] key={key_disp} "
         f"time={report.meta.duration_s:.2f}s"
     )
+    if report.meta.execution_path:
+        ep = ", ".join(
+            f"{side}={path}" for side, path in sorted(report.meta.execution_path.items())
+        )
+        console.print(f"[dim]execution: {ep}[/dim]")
 
     for a in report.meta.assumptions:
         console.print(f"[yellow]assumption[/yellow] {a}")

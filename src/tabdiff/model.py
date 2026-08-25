@@ -68,6 +68,9 @@ class DiffMeta:
     assumptions: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     duration_s: float = 0.0
+    # side -> execution path, e.g. {"left": "pushdown", "right": "local-scan"};
+    # empty for strategies that have no per-side path choice
+    execution_path: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

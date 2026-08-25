@@ -50,6 +50,15 @@ class BoundSource(ABC):
         """
         return self.engine
 
+    def remote_relation_sql(self) -> str:
+        """Relation fragment as seen by this source's OWN engine (pushdown).
+
+        Defaults to ``relation_sql()``; attached-foreign sources override it
+        because their DuckDB-side qualification (attach alias) does not exist
+        inside their own engine.
+        """
+        return self.relation_sql()
+
     # -- shared implementations --------------------------------------------
 
     def columns(self) -> list[ColumnInfo]:

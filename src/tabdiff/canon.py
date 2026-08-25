@@ -76,9 +76,10 @@ def _float_text_wrap(engine: Engine, expr: str) -> str:
     s = f"lower(CAST({expr} AS VARCHAR))"
     s = f"replace({s}, 'infinity', 'inf')"
     s = f"replace({s}, 'e+', 'e')"
-    # strip trailing '.0' (pg prints '1', duckdb '1.0') incl. before exponents
+    # strip trailing '.0' (pg prints '1', duckdb '1.0') incl. before exponents;
+    # LIKE instead of ends_with because postgres has no ends_with()
     s = (
-        f"(CASE WHEN ends_with({s}, '.0') THEN left({s}, length({s}) - 2) "
+        f"(CASE WHEN {s} LIKE '%.0' THEN left({s}, length({s}) - 2) "
         f"ELSE replace({s}, '.0e', 'e') END)"
     )
     return s
