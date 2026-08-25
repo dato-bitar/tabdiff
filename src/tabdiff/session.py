@@ -37,7 +37,11 @@ class Session:
 
     def arrow(self, sql: str) -> Any:
         """Run SQL and fetch the result as a PyArrow Table."""
-        return self.con.execute(sql).arrow()
+        result = self.con.execute(sql).arrow()
+        # Some duckdb versions hand back a record-batch reader here.
+        if hasattr(result, "read_all"):
+            return result.read_all()
+        return result
 
     def rows(self, sql: str) -> list[tuple[Any, ...]]:
         return list(self.con.execute(sql).fetchall())

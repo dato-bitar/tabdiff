@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -13,23 +14,25 @@ def tmp_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def docker_available() -> bool:
+@pytest.fixture(scope="session")
+def pg_dsn() -> Iterator[str]:
+    """A live postgres DSN: env override first, else a testcontainer."""
+    env = os.environ.get("TABDIFF_TEST_PG_DSN")
+    if env:
+        yield env
+        return
+    from tests.pg_utils import _normalize_dsn, docker_reachable
+
+    if not docker_reachable():
+        pytest.skip("docker unavailable")
+        return
     try:
-        import subprocess
-
-        r = subprocess.run(
-            ["docker", "info", "--format", "ok"],
-            capture_output=True,
-            timeout=20,
-            check=False,
-        )
-        return r.returncode == 0
-    except Exception:
-        return False
-
-
-def pg_dsn_from_env() -> str | None:
-    return os.environ.get("TABDIFF_TEST_PG_DSN")
+        from testcontainers.postgres import PostgresContainer
+    except ImportError:
+        pytest.skip("testcontainers not installed")
+        return
+    with PostgresContainer("postgres:16-alpine") as pg:
+        yield _normalize_dsn(pg.get_connection_url())
 
 
 requires_pg = pytest.mark.postgres

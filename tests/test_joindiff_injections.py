@@ -219,4 +219,3 @@ class TestKeys:
         pq.write_table(t_r, rp)
         report = diff_files(session, str(lp), str(rp), key=("id",))
         assert report.identical
-

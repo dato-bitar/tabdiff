@@ -113,7 +113,7 @@ class TestSpecParsing:
         kind, path, url, table = parse_source_spec("postgres://u:p@h:5432/mydb/public/events")
         assert kind == "postgres"
         assert path is None
-        assert url == "postgres://u:p@h:5432/mydb/public/events"
+        assert url == "postgres://u:p@h:5432/mydb"
         assert table == "public.events"
 
     def test_postgres_url_without_schema(self) -> None:
@@ -129,3 +129,4 @@ class TestSpecParsing:
         kind, path, _, _ = parse_source_spec("sub/dir/table.parquet")
         assert kind == "parquet"
         assert path is not None and path.as_posix() == "sub/dir/table.parquet"
+

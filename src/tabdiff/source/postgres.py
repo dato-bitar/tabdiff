@@ -77,7 +77,11 @@ class PostgresSource(RelationSource):
                 raise SourceError(msg) from exc
             msg = f"table {self.pg_schema}.{table!r} not reachable in postgres: {exc}"
             raise SourceError(msg) from exc
-        super().__init__(session, alias, qualified, declared=self._declared_from_catalog(cols))
+        super().__init__(session, alias, qualified, declared=cols)
+        # Catalog nullability needs self.alias (set by super().__init__ above).
+        catalog_cols = self._declared_from_catalog(cols)
+        if catalog_cols is not cols:
+            self.declared_override = catalog_cols
         self._pushdown_ok: bool | None = None
 
     @property
