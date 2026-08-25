@@ -1,0 +1,81 @@
+[project]
+name = "tabdiff"
+version = "0.1.0"
+description = "Local-first, cell-level diff for tabular data sources (Parquet, CSV, DuckDB, Postgres)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "tabdiff contributors" }]
+keywords = ["diff", "data", "parquet", "csv", "postgres", "duckdb", "data-engineering"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "duckdb>=1.1.3",
+    "pyarrow>=17.0",
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[project.scripts]
+tabdiff = "tabdiff.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tabdiff"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-timeout>=2.3",
+    "hypothesis>=6.108",
+    "testcontainers[postgres]>=4.7",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "PL"]
+ignore = [
+    "PLR0913", # many arguments are common for SQL-builder functions
+    "PLR2004", # magic values in tests are fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR0133", "E501"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src"]
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["pyarrow.*", "testcontainers.*", "duckdb.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "postgres: integration tests that need Docker/testcontainers or TABDIFF_TEST_PG_DSN",
+    "slow: long-running tests (benchmarks)",
+]
+timeout = 300
+
+[tool.hypothesis]
+max_examples = 50

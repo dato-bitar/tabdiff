@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Tooling caches
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Benchmark / demo artifacts
+benchmark_data/
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.csv
+!tests/data/*.csv
+
+# OS
+.DS_Store
+Thumbs.db
