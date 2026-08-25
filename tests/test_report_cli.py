@@ -95,6 +95,11 @@ class TestMarkdownOutput:
 class TestCli:
     runner = CliRunner()
 
+    def test_version_flag_standalone(self) -> None:
+        r = self.runner.invoke(app, ["--version"])
+        assert r.exit_code == 0, r.output
+        assert "tabdiff" in r.output
+
     def test_exit_codes(self, tmp_path: Any) -> None:
         same = build("order_shuffled", n_rows=60, seed=9)
         diffed = build("value_changed", n_rows=60, seed=9)

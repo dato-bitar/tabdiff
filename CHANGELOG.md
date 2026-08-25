@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.1.0b1] - 2026-08-25
 
-First public beta. All core milestones (M0–M9) complete; 280 tests green
+First public beta. All core milestones (M0–M9) complete; 281 tests green
 (ruff format+check, mypy --strict, pytest including live-Postgres tests).
 
 ### Added
@@ -61,6 +61,8 @@ First public beta. All core milestones (M0–M9) complete; 280 tests green
   result-column names, and an Arrow decoding bug in the never-run path.
   Now verified active against live Postgres with integration tests that
   assert which path ran.
+- `tabdiff --version` exited 2 ("Missing command"); now prints the version
+  with exit 0 as documented in the README.
 
 ### Known limitations
 

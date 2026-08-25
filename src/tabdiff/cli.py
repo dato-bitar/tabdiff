@@ -33,13 +33,16 @@ def _version(version: bool = typer.Option(False, "--version", is_eager=True)) ->
         raise typer.Exit
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def _root(
+    ctx: typer.Context,
     version: bool = typer.Option(False, "--version", is_eager=True),
 ) -> None:
     """Local-first diff for tabular data. Nothing leaves your machine."""
     if version:
         print(f"tabdiff {__version__}")
+        raise typer.Exit
+    if ctx.invoked_subcommand is None:
         raise typer.Exit
 
 
