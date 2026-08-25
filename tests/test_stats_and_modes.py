@@ -99,9 +99,9 @@ class TestKeyless:
             sub = tmp_path / f"k{side}"
             sub.mkdir(exist_ok=True)
             lp, rp = _pair(sub, inj.left, inj.right)
-            l = bind_source(session, "kl", lp)
-            r = bind_source(session, "kr", rp)
-            rep = run_keyless_diff(session, l, r, opts=CompareOptions())
+            src_l = bind_source(session, "kl", lp)
+            src_r = bind_source(session, "kr", rp)
+            rep = run_keyless_diff(session, src_l, src_r, opts=CompareOptions())
             counts = rep.counts
             assert counts is not None and counts.both == 100 - (3 if side == "left_only" else 0)
             got = getattr(counts, side)
@@ -113,9 +113,9 @@ class TestKeyless:
         """Same rows in different order -> identical under key-less."""
         inj = build("order_shuffled", n_rows=80)
         lp, rp = _pair(tmp_path, inj.left, inj.right)
-        l = bind_source(session, "ml", lp)
-        r = bind_source(session, "mr", rp)
-        rep = run_keyless_diff(session, l, r, opts=CompareOptions())
+        src_l = bind_source(session, "ml", lp)
+        src_r = bind_source(session, "mr", rp)
+        rep = run_keyless_diff(session, src_l, src_r, opts=CompareOptions())
         assert rep.counts is not None and rep.counts.left_only == 0
         assert rep.counts.right_only == 0
 
@@ -126,9 +126,9 @@ class TestStrategyChoice:
         pq.write_table(pa.table({"id": pa.array([1])}), p)
         s = Session()
         try:
-            l = bind_source(s, "l", str(p))
-            r = bind_source(s, "r", str(p))
-            assert choose_strategy(l, r, RunOptions()) == "join"
+            src_l = bind_source(s, "l", str(p))
+            src_r = bind_source(s, "r", str(p))
+            assert choose_strategy(src_l, src_r, RunOptions()) == "join"
         finally:
             s.close()
 
@@ -137,9 +137,9 @@ class TestStrategyChoice:
         pq.write_table(pa.table({"id": pa.array([1])}), p)
         s = Session()
         try:
-            l = bind_source(s, "l", str(p))
-            r = bind_source(s, "r", str(p))
-            assert choose_strategy(l, r, RunOptions(strategy="hash")) == "hash"
+            src_l = bind_source(s, "l", str(p))
+            src_r = bind_source(s, "r", str(p))
+            assert choose_strategy(src_l, src_r, RunOptions(strategy="hash")) == "hash"
         finally:
             s.close()
 
