@@ -1,5 +1,7 @@
 # tabdiff
 
+[![CI](https://github.com/dato-bitar/tabdiff/actions/workflows/ci.yml/badge.svg)](https://github.com/dato-bitar/tabdiff/actions/workflows/ci.yml)
+
 **Local-first, cell-level diff for tabular data.** Compare Parquet, CSV,
 DuckDB files and Postgres tables row-by-row and cell-by-cell — entirely on
 your machine. No cloud, no account, no data leaving the host.
